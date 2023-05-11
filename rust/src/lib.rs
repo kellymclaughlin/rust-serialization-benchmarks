@@ -1,26 +1,12 @@
-extern crate bincode;
-extern crate capnp;
-extern crate flatbuffers;
 extern crate num_traits;
 #[macro_use]
 extern crate num_derive;
-extern crate protobuf;
 extern crate serde;
 #[macro_use]
 extern crate serde_derive;
 extern crate serde_json;
 
-pub mod log_capnp {
-    include!(concat!(env!("OUT_DIR"), "/log_capnp.rs"));
-}
-
-#[path = "../target/protobufs/log_proto.rs"]
-pub mod log_proto;
-
-#[allow(non_snake_case)]
-#[path = "../target/flatbuffers/log_generated.rs"]
-pub mod log_flatbuffers;
-
+use std::borrow::Cow;
 use std::fmt;
 
 macro_rules! enum_number {
@@ -443,199 +429,44 @@ impl Log {
     }
 }
 
-pub mod protocol_capnp {
-    use capnp::message::{Allocator, Builder};
-    use crate::log_capnp::{h_t_t_p, log, origin, CacheStatus, Country, ZonePlan};
+#[derive(Clone, Serialize, Deserialize, Debug)]
+pub struct IngestData<'a> {
+    #[serde(borrow)]
+    pub typ: Cow<'a, str>,
+    #[serde(borrow)]
+    pub source: Cow<'a, str>,
+    #[serde(borrow)]
+    pub timestamp: Cow<'a, str>,
+    pub msg: LogMsg<'a>,
+}
 
-    pub fn populate_log<'a, A: Allocator>(msg: &'a mut Builder<A>) -> log::Builder<'a> {
-        let mut log = msg.init_root::<log::Builder>();
-        log.set_timestamp(2837513946597);
-        log.set_zone_id(123456);
-        log.set_zone_plan(ZonePlan::Free);
+#[derive(Clone, Serialize, Deserialize, Debug)]
+pub struct LogMsg<'a> {
+    #[serde(borrow)]
+    pub svc_id: Cow<'a, str>,
+    #[serde(borrow)]
+    pub endpoint: Cow<'a, str>,
+    #[serde(with = "serde_bytes")]
+    pub msg: Vec<u8>,
+}
 
-        {
-            let mut http = log.reborrow().init_http();
-            http.set_protocol(h_t_t_p::Protocol::Http11);
-            http.set_host_status(200);
-            http.set_up_status(520);
-            http.set_method(h_t_t_p::Method::Get);
-            http.set_content_type("text/html");
-            http.set_user_agent("Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/33.0.1750.146 Safari/537.36");
-            http.set_referer("https://www.cloudflare.com/");
-            http.set_request_u_r_i("/cdn-cgi/trace");
+impl<'a> LogMsg<'a> {
+    pub fn new() -> LogMsg<'a> {
+        LogMsg {
+            svc_id: Cow::from("deadbeef"),
+            endpoint: Cow::from("sometestendpoint"),
+            msg: Vec::from("a").repeat(131072),
         }
-
-        {
-            let mut origin = log.reborrow().init_origin();
-            origin.set_ip("1.2.3.4");
-            origin.set_port(8000);
-            origin.set_hostname("www.example.com");
-            origin.set_protocol(origin::Protocol::Https);
-        }
-
-        log.set_country(Country::Us);
-        log.set_cache_status(CacheStatus::Hit);
-        log.set_server_ip("192.168.1.1");
-        log.set_server_name("metal.cloudflare.com");
-        log.set_remote_ip("10.1.2.3");
-        log.set_bytes_dlv(123456);
-        log.set_ray_id("10c73629cce30078-LAX");
-
-        log
     }
 }
 
-pub mod protocol_protobuf {
-    use crate::log_proto;
-
-    pub fn new_log() -> log_proto::Log {
-        let mut log = log_proto::Log::new();
-        log.set_timestamp(2837513946597);
-        log.set_zone_id(123456);
-        log.set_zone_plan(log_proto::ZonePlan::FREE);
-
-        let mut http = log_proto::HTTP::new();
-        http.set_protocol(log_proto::HTTP_Protocol::HTTP11);
-        http.set_host_status(200);
-        http.set_up_status(520);
-        http.set_method(log_proto::HTTP_Method::GET);
-        http.set_content_type("text/html".to_string());
-        http.set_user_agent("Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/33.0.1750.146 Safari/537.36".to_string());
-        http.set_referer("https://www.cloudflare.com/".to_string());
-        http.set_request_uri("/cdn-cgi/trace".to_string());
-        log.set_http(http);
-
-        let mut origin = log_proto::Origin::new();
-        origin.set_ip([1, 2, 3, 4].to_vec());
-        origin.set_port(8000);
-        origin.set_hostname("www.example.com".to_string());
-        origin.set_protocol(log_proto::Origin_Protocol::HTTPS);
-        log.set_origin(origin);
-
-        log.set_country(log_proto::Country::US);
-        log.set_cache_status(log_proto::CacheStatus::HIT);
-        log.set_server_ip([192, 168, 1, 1].to_vec());
-        log.set_server_name("metal.cloudflare.com".to_string());
-        log.set_remote_ip([10, 1, 2, 3].to_vec());
-        log.set_bytes_dlv(123456);
-        log.set_ray_id("10c73629cce30078-LAX".to_string());
-
-        log
-    }
-}
-
-pub mod protocol_flatbuffers {
-    use crate::log_flatbuffers;
-
-    pub fn populate_log_with_args<'a, 'b>(msg: &'b mut flatbuffers::FlatBufferBuilder<'a>) -> flatbuffers::WIPOffset<log_flatbuffers::Log<'a>> {
-        let content_type = msg.create_string("text/html");
-        let user_agent = msg.create_string("Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/33.0.1750.146 Safari/537.36");
-        let referer = msg.create_string("https://www.cloudflare.com/");
-        let request_uri = msg.create_string("/cdn-cgi/trace");
-
-        let http = log_flatbuffers::HTTP::create(
-            msg,
-            &log_flatbuffers::HTTPArgs {
-                protocol: log_flatbuffers::HTTP_Protocol::http11,
-                hostStatus: 200,
-                upStatus: 520,
-                method: log_flatbuffers::HTTP_Method::get,
-                contentType: Some(content_type),
-                userAgent: Some(user_agent),
-                referer: Some(referer),
-                requestURI: Some(request_uri),
-                ..Default::default()
-            }
-        );
-
-        let ip = Some(msg.create_string("1.2.3.4"));
-        let hostname = Some(msg.create_string("www.example.com"));
-
-        let origin = log_flatbuffers::Origin::create(
-            msg,
-            &log_flatbuffers::OriginArgs {
-                ip,
-                port: 8000,
-                hostname,
-                protocol: log_flatbuffers::Origin_Protocol::https,
-                ..Default::default()
-            }
-        );
-
-        let server_ip = msg.create_string("192.168.1.1");
-        let server_name = msg.create_string("metal.cloudflare.com");
-        let remote_ip = msg.create_string("10.1.2.3");
-        let ray_id = msg.create_string("10c73629cce30078-LAX");
-
-        log_flatbuffers::Log::create(
-            msg,
-            &log_flatbuffers::LogArgs {
-                http: Some(http),
-                origin: Some(origin),
-                timestamp: 2837513946597,
-                zoneId: 123456,
-                zonePlan: log_flatbuffers::ZonePlan::free,
-                country: log_flatbuffers::Country::us,
-                cacheStatus: log_flatbuffers::CacheStatus::hit,
-                serverIp: Some(server_ip),
-                serverName: Some(server_name),
-                remoteIp: Some(remote_ip),
-                bytesDlv: 123456,
-                rayId: Some(ray_id),
-                ..Default::default()
-            }
-        )
-    }
-
-    pub fn populate_log_with_builder<'a, 'b>(msg: &'b mut flatbuffers::FlatBufferBuilder<'a>) -> flatbuffers::WIPOffset<log_flatbuffers::Log<'a>> {
-        let content_type = msg.create_string("text/html");
-        let user_agent = msg.create_string("Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/33.0.1750.146 Safari/537.36");
-        let referer = msg.create_string("https://www.cloudflare.com/");
-        let request_uri = msg.create_string("/cdn-cgi/trace");
-
-        let http = {
-            let mut http_builder = log_flatbuffers::HTTPBuilder::new(msg);
-            http_builder.add_protocol(log_flatbuffers::HTTP_Protocol::http11);
-            http_builder.add_hostStatus(200);
-            http_builder.add_upStatus(520);
-            http_builder.add_method(log_flatbuffers::HTTP_Method::get);
-            http_builder.add_contentType(content_type);
-            http_builder.add_userAgent(user_agent);
-            http_builder.add_referer(referer);
-            http_builder.add_requestURI(request_uri);
-            http_builder.finish()
-        };
-
-        let ip = msg.create_string("1.2.3.4");
-        let hostname = msg.create_string("www.example.com");
-
-        let origin = {
-            let mut origin_builder = log_flatbuffers::OriginBuilder::new(msg);
-            origin_builder.add_ip(ip);
-            origin_builder.add_port(8000);
-            origin_builder.add_hostname(hostname);
-            origin_builder.add_protocol(log_flatbuffers::Origin_Protocol::https);
-            origin_builder.finish()
-        };
-
-        let server_ip = msg.create_string("192.168.1.1");
-        let server_name = msg.create_string("metal.cloudflare.com");
-        let remote_ip = msg.create_string("10.1.2.3");
-        let ray_id = msg.create_string("10c73629cce30078-LAX");
-
-        let mut log_builder = log_flatbuffers::LogBuilder::new(msg);
-        log_builder.add_http(http);
-        log_builder.add_origin(origin);
-        log_builder.add_timestamp(2837513946597);
-        log_builder.add_zoneId(123456);
-        log_builder.add_zonePlan(log_flatbuffers::ZonePlan::free);
-        log_builder.add_country(log_flatbuffers::Country::us);
-        log_builder.add_cacheStatus(log_flatbuffers::CacheStatus::hit);
-        log_builder.add_serverIp(server_ip);
-        log_builder.add_serverName(server_name);
-        log_builder.add_remoteIp(remote_ip);
-        log_builder.add_bytesDlv(123456);
-        log_builder.add_rayId(ray_id);
-        log_builder.finish()
+impl<'a> IngestData<'a> {
+    pub fn new() -> IngestData<'a> {
+        IngestData {
+            typ: Cow::from("log"),
+            source: Cow::from("xqd"),
+            timestamp: Cow::from("4:00:00"),
+            msg: LogMsg::new(),
+        }
     }
 }

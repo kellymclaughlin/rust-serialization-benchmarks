@@ -1,9 +1,6 @@
-all: c++ go rust
+all: go rust
 
-.PHONY: c++ go rust
-
-c++:
-	cd c++ && $(MAKE) bench
+.PHONY: go rust
 
 go:
 	cd go && $(MAKE) bench
