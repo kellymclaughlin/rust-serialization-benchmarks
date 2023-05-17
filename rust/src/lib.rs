@@ -455,7 +455,7 @@ impl<'a> LogMsg<'a> {
         LogMsg {
             svc_id: Cow::from("deadbeef"),
             endpoint: Cow::from("sometestendpoint"),
-            msg: Vec::from("a").repeat(131072),
+            msg: Vec::from("a").repeat(262144),
         }
     }
 }

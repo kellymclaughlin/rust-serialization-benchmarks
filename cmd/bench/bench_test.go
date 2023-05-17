@@ -60,11 +60,9 @@ func BenchmarkMarshalMsgPack(b *testing.B) {
 	}
 	b.SetBytes(int64(len(buf)))
 
-	buffer := bytes.NewBuffer(make([]byte, 1<<20))
-
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		buffer.Reset()
+		buf = buf[:0]
 		err := enc.Encode(msg)
 		if err != nil {
 			b.Fatalf("Encode: %v", err)
@@ -85,6 +83,7 @@ func BenchmarkUnmarshalMsgPack(b *testing.B) {
 	b.SetBytes(int64(len(buf)))
 
 	b.ResetTimer()
+
 	var tmp types.IngestData
 	for i := 0; i < b.N; i++ {
 		err := codec.NewDecoderBytes(buf, h).Decode(&tmp)

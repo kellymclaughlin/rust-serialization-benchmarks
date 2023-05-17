@@ -21,7 +21,7 @@ func NewIngestData() *IngestData {
 	logMsg := LogMsg{
 		SvcID:    "deadbeef",
 		Endpoint: "sometestendpoint",
-		Msg:      bytes.Repeat([]byte("a"), 131072),
+		Msg:      bytes.Repeat([]byte("a"), 262144),
 	}
 
 	return &IngestData{

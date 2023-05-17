@@ -27,8 +27,6 @@ fn serde_json_serialize(b: &mut Bencher) {
 
     serde_json::to_writer(&mut buf, &log).unwrap();
     b.bytes = buf.len() as u64;
-    // let size = ::std::mem::size_of_val(&log);
-    // b.bytes = size as u64;
 
     b.iter(|| {
         buf.clear();
@@ -42,8 +40,6 @@ fn serde_json_deserialize(b: &mut Bencher) {
     let json = serde_json::to_string(&log).unwrap();
 
     b.bytes = json.len() as u64;
-    // let size = ::std::mem::size_of_val(&log);
-    // b.bytes = size as u64;
 
     b.iter(|| serde_json::from_str::<IngestData>(&json).unwrap());
 }
@@ -55,8 +51,6 @@ fn rmp_serde_serialize(b: &mut Bencher) {
     log.serialize(&mut ::rmp_serde::Serializer::new(&mut buf))
         .unwrap();
     b.bytes = buf.len() as u64;
-    // let size = ::std::mem::size_of_val(&log);
-    // b.bytes = size as u64;
 
     b.iter(|| {
         buf.clear();
@@ -73,13 +67,10 @@ fn rmp_serde_deserialize(b: &mut Bencher) {
     log.serialize(&mut ::rmp_serde::Serializer::new(&mut buf))
         .unwrap();
     b.bytes = buf.len() as u64;
-    // let size = ::std::mem::size_of_val(&log);
-    // b.bytes = size as u64;
-    // let slice = buf.as_slice();
+
     b.iter(|| {
-        let mut decoder = ::rmp_serde::Deserializer::new(&*buf);
-        let _log: IngestData = Deserialize::deserialize(&mut decoder).unwrap();
-        // -        let _log: Log = Deserialize::deserialize(&mut decoder).unwrap();
-        // let _outlog: IngestData = rmp_serde::from_slice(slice).unwrap();
+        // let mut decoder = ::rmp_serde::Deserializer::new(&*buf);
+        // let _log: IngestData = Deserialize::deserialize(&mut decoder).unwrap();
+        let _outlog: IngestData = rmp_serde::from_slice(buf.as_slice()).unwrap();
     });
 }
