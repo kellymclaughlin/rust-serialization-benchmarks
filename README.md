@@ -1,3 +1,24 @@
+This is a fork of a benchmarking repo I hijacked to do some benchmarking
+comparisons of JSON and Messagepack performance between Rust and Go. The repo
+implemented testing for a myriad of other serialization formats, but that
+exceeded the scope of my needs.
+
+## Rust
+
+To run the rust bencmarks you must first install the rust `nightly`
+toolchain. This is required for the Bencher testing functionality. More info on
+the different Rust release channels, including `nightly`, is available
+[here](https://rust-lang.github.io/rustup/concepts/channels.html). Once
+`nightly` is installed, change into the `rust` subdirectory and run `make
+bench`.
+
+## Go
+
+Change into the `cmd/bench` subdirectory. Then run `go test -bench . -benchmem`.
+
+
+**Note:** Everything below this line is the original README content from the forked repo.
+
 This is a suite of serialization benchmarks. It comprises of the following projects:
 
 * C++
